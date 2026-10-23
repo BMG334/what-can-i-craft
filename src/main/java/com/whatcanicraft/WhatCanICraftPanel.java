@@ -32,7 +32,7 @@ public class WhatCanICraftPanel extends PluginPanel
 		// Tab order follows the CraftSkill enum: Herblore, then Crafting
 		for (CraftSkill skill : CraftSkill.values())
 		{
-			SkillPanel skillPanel = new SkillPanel(() -> onScan.accept(skill));
+			SkillPanel skillPanel = new SkillPanel(skill.getCategories(), () -> onScan.accept(skill));
 			skillPanels.put(skill, skillPanel);
 			tabs.addTab(skill.getDisplayName(), skillPanel);
 		}

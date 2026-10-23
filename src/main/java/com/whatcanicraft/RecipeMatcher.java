@@ -26,7 +26,7 @@ public final class RecipeMatcher
 			{
 				if (ownsAll(ownedNames, option))
 				{
-					matches.add(new RecipeMatch(recipe.getName(), recipe.getLevel(), String.join(", ", option)));
+					matches.add(new RecipeMatch(recipe.getName(), recipe.getLevel(), String.join(", ", option), recipe.getCategory()));
 					break; // first satisfied option wins
 				}
 			}

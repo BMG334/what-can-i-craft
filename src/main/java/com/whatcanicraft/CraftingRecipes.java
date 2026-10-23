@@ -15,6 +15,16 @@ public final class CraftingRecipes
 	{
 	}
 
+	public static final String ARMOR = "Armor";
+	public static final String GEMS = "Gems";
+	public static final String JEWELRY = "Jewelry";
+	public static final String STAVES = "Staves";
+	public static final String GLASS = "Glass";
+
+	/** Filter categories in dropdown order. */
+	public static final List<String> CATEGORIES = Collections.unmodifiableList(
+		Arrays.asList(ARMOR, GEMS, JEWELRY, STAVES, GLASS));
+
 	public static final List<Recipe> ALL;
 
 	static
@@ -48,21 +58,21 @@ public final class CraftingRecipes
 		r.add(sewn("Black d'hide body", 84, "Black dragon leather"));
 
 		// Gem cutting
-		r.add(new Recipe("Opal", 1, "Chisel", "Uncut opal"));
-		r.add(new Recipe("Jade", 13, "Chisel", "Uncut jade"));
-		r.add(new Recipe("Red topaz", 16, "Chisel", "Uncut red topaz"));
-		r.add(new Recipe("Sapphire", 20, "Chisel", "Uncut sapphire"));
-		r.add(new Recipe("Emerald", 27, "Chisel", "Uncut emerald"));
-		r.add(new Recipe("Ruby", 34, "Chisel", "Uncut ruby"));
-		r.add(new Recipe("Diamond", 43, "Chisel", "Uncut diamond"));
-		r.add(new Recipe("Dragonstone", 55, "Chisel", "Uncut dragonstone"));
-		r.add(new Recipe("Onyx", 67, "Chisel", "Uncut onyx"));
-		r.add(new Recipe("Zenyte", 89, "Chisel", "Uncut zenyte"));
+		r.add(cut("Opal", 1, "Uncut opal"));
+		r.add(cut("Jade", 13, "Uncut jade"));
+		r.add(cut("Red topaz", 16, "Uncut red topaz"));
+		r.add(cut("Sapphire", 20, "Uncut sapphire"));
+		r.add(cut("Emerald", 27, "Uncut emerald"));
+		r.add(cut("Ruby", 34, "Uncut ruby"));
+		r.add(cut("Diamond", 43, "Uncut diamond"));
+		r.add(cut("Dragonstone", 55, "Uncut dragonstone"));
+		r.add(cut("Onyx", 67, "Uncut onyx"));
+		r.add(cut("Zenyte", 89, "Uncut zenyte"));
 
 		// Jewellery (gold bar + mould [+ cut gem])
-		r.add(new Recipe("Gold ring", 5, "Gold bar", "Ring mould"));
-		r.add(new Recipe("Gold necklace", 6, "Gold bar", "Necklace mould"));
-		r.add(new Recipe("Gold amulet (u)", 8, "Gold bar", "Amulet mould"));
+		r.add(recipe(JEWELRY, "Gold ring", 5, "Gold bar", "Ring mould"));
+		r.add(recipe(JEWELRY, "Gold necklace", 6, "Gold bar", "Necklace mould"));
+		r.add(recipe(JEWELRY, "Gold amulet (u)", 8, "Gold bar", "Amulet mould"));
 		r.add(jewellery("Sapphire ring", 20, "Ring mould", "Sapphire"));
 		r.add(jewellery("Sapphire necklace", 22, "Necklace mould", "Sapphire"));
 		r.add(jewellery("Sapphire amulet (u)", 24, "Amulet mould", "Sapphire"));
@@ -83,10 +93,10 @@ public final class CraftingRecipes
 		r.add(jewellery("Onyx amulet (u)", 90, "Amulet mould", "Onyx"));
 
 		// Battlestaves (battlestaff + orb)
-		r.add(new Recipe("Water battlestaff", 54, "Battlestaff", "Water orb"));
-		r.add(new Recipe("Earth battlestaff", 58, "Battlestaff", "Earth orb"));
-		r.add(new Recipe("Fire battlestaff", 62, "Battlestaff", "Fire orb"));
-		r.add(new Recipe("Air battlestaff", 66, "Battlestaff", "Air orb"));
+		r.add(recipe(STAVES, "Water battlestaff", 54, "Battlestaff", "Water orb"));
+		r.add(recipe(STAVES, "Earth battlestaff", 58, "Battlestaff", "Earth orb"));
+		r.add(recipe(STAVES, "Fire battlestaff", 62, "Battlestaff", "Fire orb"));
+		r.add(recipe(STAVES, "Air battlestaff", 66, "Battlestaff", "Air orb"));
 
 		// Glassblowing
 		r.add(glass("Beer glass", 1));
@@ -100,23 +110,34 @@ public final class CraftingRecipes
 		ALL = Collections.unmodifiableList(r);
 	}
 
-	/** Needle + thread + materials. */
+	/** Needle + thread + materials (leather and dragonhide armour). */
 	private static Recipe sewn(String name, int level, String... materials)
 	{
 		List<String> items = new ArrayList<>(Arrays.asList("Needle", "Thread"));
 		items.addAll(Arrays.asList(materials));
-		return new Recipe(name, level, items.toArray(new String[0]));
+		return recipe(ARMOR, name, level, items.toArray(new String[0]));
+	}
+
+	/** Chisel + uncut gem. */
+	private static Recipe cut(String name, int level, String uncutGem)
+	{
+		return recipe(GEMS, name, level, "Chisel", uncutGem);
 	}
 
 	/** Gold bar + cut gem + mould. */
 	private static Recipe jewellery(String name, int level, String mould, String gem)
 	{
-		return new Recipe(name, level, "Gold bar", gem, mould);
+		return recipe(JEWELRY, name, level, "Gold bar", gem, mould);
 	}
 
 	/** Glassblowing pipe + molten glass. */
 	private static Recipe glass(String name, int level)
 	{
-		return new Recipe(name, level, "Glassblowing pipe", "Molten glass");
+		return recipe(GLASS, name, level, "Glassblowing pipe", "Molten glass");
+	}
+
+	private static Recipe recipe(String category, String name, int level, String... items)
+	{
+		return new Recipe(name, level, items).inCategory(category);
 	}
 }
