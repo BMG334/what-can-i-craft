@@ -1,13 +1,13 @@
-package com.example;
+package com.whatcanicraft;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class ExamplePluginTest
+public class WhatCanICraftPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(ExamplePlugin.class);
+		ExternalPluginManager.loadBuiltin(WhatCanICraftPlugin.class);
 		RuneLite.main(args);
 	}
 }
