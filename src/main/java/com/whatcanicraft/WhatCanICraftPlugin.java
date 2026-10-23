@@ -29,8 +29,8 @@ import net.runelite.client.ui.NavigationButton;
 @Slf4j
 @PluginDescriptor(
 	name = "What Can I Craft",
-	description = "Scans your bank for Herblore ingredients and lists the potions you can make",
-	tags = {"herblore", "bank", "potion", "recipes"}
+	description = "Scans your bank for skilling ingredients and lists what you can make (Herblore, Crafting)",
+	tags = {"herblore", "crafting", "bank", "recipes"}
 )
 public class WhatCanICraftPlugin extends Plugin
 {
@@ -75,22 +75,22 @@ public class WhatCanICraftPlugin extends Plugin
 		navButton = null;
 	}
 
-	/** Called from the Swing thread when the Scan button is pressed. */
-	private void scanBank()
+	/** Called from the Swing thread when a tab's Scan button is pressed. */
+	private void scanBank(CraftSkill skill)
 	{
 		// Item containers and item definitions must be read on the client thread
 		clientThread.invoke(() ->
 		{
 			if (client.getGameState() != GameState.LOGGED_IN)
 			{
-				showMessage("Log in to scan your bank.");
+				showMessage(skill, "Log in to scan your bank.");
 				return;
 			}
 
 			ItemContainer bank = client.getItemContainer(InventoryID.BANK);
 			if (bank == null)
 			{
-				showMessage("You must open your bank at least once before you can scan it.");
+				showMessage(skill, "Bank contents unavailable. Open your bank once, then scan again.");
 				return;
 			}
 
@@ -106,12 +106,12 @@ public class WhatCanICraftPlugin extends Plugin
 				}
 			}
 
-			List<HerbloreRecipes.Match> matches = HerbloreRecipes.findCraftable(owned);
+			List<RecipeMatch> matches = RecipeMatcher.findCraftable(skill.getRecipes(), owned);
 			SwingUtilities.invokeLater(() ->
 			{
 				if (panel != null)
 				{
-					panel.showResults(matches);
+					panel.showResults(skill, matches);
 				}
 			});
 		});
@@ -140,13 +140,13 @@ public class WhatCanICraftPlugin extends Plugin
 		}
 	}
 
-	private void showMessage(String message)
+	private void showMessage(CraftSkill skill, String message)
 	{
 		SwingUtilities.invokeLater(() ->
 		{
 			if (panel != null)
 			{
-				panel.showMessage(message);
+				panel.showMessage(skill, message);
 			}
 		});
 	}

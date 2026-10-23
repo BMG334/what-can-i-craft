@@ -1,124 +1,52 @@
 package com.whatcanicraft;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 
 /**
- * Side panel: a "Scan Bank" button, a status line, and the list of discovered recipes.
- * All methods that touch Swing must be called on the Swing event thread.
+ * The plugin's side panel: one tab per skill, each containing its own scan button and results.
+ * All methods must be called on the Swing event thread.
  */
 public class WhatCanICraftPanel extends PluginPanel
 {
-	private final JLabel statusLabel = new JLabel();
-	private final JPanel resultsContainer = new JPanel();
+	private final Map<CraftSkill, SkillPanel> skillPanels = new EnumMap<>(CraftSkill.class);
 
-	public WhatCanICraftPanel(Runnable onScan)
+	public WhatCanICraftPanel(Consumer<CraftSkill> onScan)
 	{
 		super();
-		setLayout(new BorderLayout(0, 8));
+		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-		JButton scanButton = new JButton("Scan Bank");
-		scanButton.setFocusable(false);
-		scanButton.addActionListener(e -> onScan.run());
+		JTabbedPane tabs = new JTabbedPane();
+		tabs.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		tabs.setFocusable(false);
 
-		statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		setStatus("Open your bank, then press Scan Bank.");
-
-		JPanel header = new JPanel(new BorderLayout(0, 8));
-		header.setOpaque(false);
-		header.add(scanButton, BorderLayout.NORTH);
-		header.add(statusLabel, BorderLayout.CENTER);
-
-		resultsContainer.setLayout(new BoxLayout(resultsContainer, BoxLayout.Y_AXIS));
-		resultsContainer.setOpaque(false);
-
-		// Wrapper keeps entries packed at the top instead of stretching to fill the panel
-		JPanel resultsWrapper = new JPanel(new BorderLayout());
-		resultsWrapper.setOpaque(false);
-		resultsWrapper.add(resultsContainer, BorderLayout.NORTH);
-
-		add(header, BorderLayout.NORTH);
-		add(resultsWrapper, BorderLayout.CENTER);
-	}
-
-	public void setStatus(String text)
-	{
-		statusLabel.setText("<html><body style='width:170px'>" + text + "</body></html>");
-	}
-
-	public void showMessage(String message)
-	{
-		resultsContainer.removeAll();
-		setStatus(message);
-		refresh();
-	}
-
-	public void showResults(List<HerbloreRecipes.Match> matches)
-	{
-		resultsContainer.removeAll();
-
-		if (matches.isEmpty())
+		// Tab order follows the CraftSkill enum: Herblore, then Crafting
+		for (CraftSkill skill : CraftSkill.values())
 		{
-			setStatus("No herblore recipes found in your bank.");
-		}
-		else
-		{
-			setStatus("Found " + matches.size() + " recipe" + (matches.size() == 1 ? "" : "s") + ":");
-			for (HerbloreRecipes.Match match : matches)
-			{
-				resultsContainer.add(createEntry(match));
-				resultsContainer.add(createGap());
-			}
+			SkillPanel skillPanel = new SkillPanel(() -> onScan.accept(skill));
+			skillPanels.put(skill, skillPanel);
+			tabs.addTab(skill.getDisplayName(), skillPanel);
 		}
 
-		refresh();
+		add(tabs, BorderLayout.CENTER);
 	}
 
-	private JPanel createEntry(HerbloreRecipes.Match match)
+	public void showMessage(CraftSkill skill, String message)
 	{
-		JPanel entry = new JPanel();
-		entry.setLayout(new BoxLayout(entry, BoxLayout.Y_AXIS));
-		entry.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		entry.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-
-		// Main text: potion name
-		JLabel title = new JLabel(match.getPotionName());
-		title.setForeground(Color.WHITE);
-		title.setAlignmentX(LEFT_ALIGNMENT);
-
-		// Subtitle: ingredients
-		JLabel subtitle = new JLabel("<html><body style='width:150px'>" + match.getIngredients() + "</body></html>");
-		subtitle.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		subtitle.setAlignmentX(LEFT_ALIGNMENT);
-
-		entry.add(title);
-		entry.add(subtitle);
-		return entry;
+		skillPanels.get(skill).showMessage(message);
 	}
 
-	private static JPanel createGap()
+	public void showResults(CraftSkill skill, List<RecipeMatch> matches)
 	{
-		JPanel gap = new JPanel();
-		gap.setOpaque(false);
-		gap.setPreferredSize(new Dimension(0, 5));
-		gap.setMaximumSize(new Dimension(Integer.MAX_VALUE, 5));
-		return gap;
-	}
-
-	private void refresh()
-	{
-		resultsContainer.revalidate();
-		resultsContainer.repaint();
+		skillPanels.get(skill).showResults(matches);
 	}
 }
