@@ -1,55 +1,54 @@
 package com.whatcanicraft;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A recipe for any skill. A recipe has one or more "options"; each option is a list of item names
  * that must ALL be owned. The recipe is craftable if any single option is fully satisfied.
  * (Herblore uses two options: herb + vial of water, or the unfinished potion.)
- * A recipe may optionally carry a category, used by the panel's filter dropdown.
  */
 public class Recipe
 {
+	private final String category;
 	private final String name;
 	private final int level;
 	private final List<List<String>> options;
-	private final String category;
 
-	/** Single-option recipe: every listed item is required. */
-	public Recipe(String name, int level, String... ingredients)
+	/**
+	 * @param category category used by the panel's filter dropdown, or null if the skill has none
+	 * @param options  alternative ingredient lists; any one fully owned list makes the recipe craftable
+	 */
+	public Recipe(String category, String name, int level, List<List<String>> options)
 	{
-		this(name, level, Collections.singletonList(Arrays.asList(ingredients)));
-	}
-
-	/** Multi-option recipe: any one option being fully owned is enough. */
-	public Recipe(String name, int level, List<List<String>> options)
-	{
-		this(name, level, options, null);
-	}
-
-	private Recipe(String name, int level, List<List<String>> options, String category)
-	{
+		this.category = category;
 		this.name = name;
 		this.level = level;
-		this.category = category;
-		List<List<String>> copy = new ArrayList<>();
+		this.options = options.stream().map(List::copyOf).collect(Collectors.toUnmodifiableList());
+	}
+
+	/** Single-option recipe: every listed item is required. */
+	public static Recipe of(String category, String name, int level, String... ingredients)
+	{
+		return new Recipe(category, name, level, List.of(Arrays.asList(ingredients)));
+	}
+
+	/** @return a match using the first fully owned option, or null if the recipe isn't craftable */
+	public Match match(Set<String> ownedNames)
+	{
 		for (List<String> option : options)
 		{
-			copy.add(Collections.unmodifiableList(new ArrayList<>(option)));
+			if (option.stream().allMatch(item -> ownedNames.contains(item.toLowerCase(Locale.ROOT))))
+			{
+				return new Match(this, String.join(", ", option));
+			}
 		}
-		this.options = Collections.unmodifiableList(copy);
+		return null;
 	}
 
-	/** Returns a copy of this recipe tagged with a category. */
-	public Recipe inCategory(String category)
-	{
-		return new Recipe(name, level, options, category);
-	}
-
-	/** @return the category, or null if the recipe is uncategorised */
 	public String getCategory()
 	{
 		return category;
@@ -65,8 +64,26 @@ public class Recipe
 		return level;
 	}
 
-	public List<List<String>> getOptions()
+	/** A recipe the player can make, with the ingredient list that satisfied it. */
+	public static class Match
 	{
-		return options;
+		private final Recipe recipe;
+		private final String ingredients;
+
+		private Match(Recipe recipe, String ingredients)
+		{
+			this.recipe = recipe;
+			this.ingredients = ingredients;
+		}
+
+		public Recipe getRecipe()
+		{
+			return recipe;
+		}
+
+		public String getIngredients()
+		{
+			return ingredients;
+		}
 	}
 }

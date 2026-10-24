@@ -1,7 +1,10 @@
 package com.whatcanicraft;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /** The skills shown as tabs in the side panel, in tab order. */
 public enum CraftSkill
@@ -25,14 +28,28 @@ public enum CraftSkill
 		return displayName;
 	}
 
-	public List<Recipe> getRecipes()
-	{
-		return recipes;
-	}
-
 	/** @return filter categories for this skill's tab; empty means no dropdown is shown */
 	public List<String> getCategories()
 	{
 		return categories;
+	}
+
+	/**
+	 * @param ownedNames lower-case names of items the player owns
+	 * @return this skill's craftable recipes, sorted by required level
+	 */
+	public List<Recipe.Match> findCraftable(Set<String> ownedNames)
+	{
+		List<Recipe.Match> matches = new ArrayList<>();
+		for (Recipe recipe : recipes)
+		{
+			Recipe.Match match = recipe.match(ownedNames);
+			if (match != null)
+			{
+				matches.add(match);
+			}
+		}
+		matches.sort(Comparator.comparingInt(match -> match.getRecipe().getLevel()));
+		return matches;
 	}
 }

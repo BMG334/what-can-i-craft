@@ -2,7 +2,6 @@ package com.whatcanicraft;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /** Herblore recipe data. Names must match in-game item names exactly. */
@@ -14,7 +13,7 @@ public final class HerbloreRecipes
 	{
 	}
 
-	public static final List<Recipe> ALL = Collections.unmodifiableList(Arrays.asList(
+	public static final List<Recipe> ALL = List.of(
 		potion("Attack potion", 3, "Guam leaf", "Eye of newt"),
 		potion("Antipoison", 5, "Marrentill", "Unicorn horn dust"),
 		potion("Strength potion", 12, "Tarromin", "Limpwurt root"),
@@ -44,7 +43,7 @@ public final class HerbloreRecipes
 		potion("Zamorak brew", 78, "Torstol", "Jangerberries"),
 		potion("Antidote++", 79, "Irit leaf", "Magic roots"),
 		potion("Saradomin brew", 81, "Toadflax", "Crushed nest")
-	));
+	);
 
 	/**
 	 * Builds a potion recipe with two options: (herb + vial of water + secondaries)
@@ -52,23 +51,15 @@ public final class HerbloreRecipes
 	 */
 	private static Recipe potion(String name, int level, String herb, String... secondaries)
 	{
-		List<String> fromHerb = new ArrayList<>(Arrays.asList(herb, VIAL_OF_WATER));
+		// "Guam leaf" -> "Guam potion (unf)", "Dwarf weed" -> "Dwarf weed potion (unf)"
+		String unfinished = (herb.equals("Dwarf weed") ? herb : herb.replace(" leaf", "").replace(" weed", ""))
+			+ " potion (unf)";
+
+		List<String> fromHerb = new ArrayList<>(List.of(herb, VIAL_OF_WATER));
+		List<String> fromUnfinished = new ArrayList<>(List.of(unfinished));
 		fromHerb.addAll(Arrays.asList(secondaries));
+		fromUnfinished.addAll(Arrays.asList(secondaries));
 
-		List<String> fromUnf = new ArrayList<>();
-		fromUnf.add(unfinishedName(herb));
-		fromUnf.addAll(Arrays.asList(secondaries));
-
-		return new Recipe(name, level, Arrays.asList(fromHerb, fromUnf));
-	}
-
-	/** "Guam leaf" -> "Guam potion (unf)", "Dwarf weed" -> "Dwarf weed potion (unf)". */
-	private static String unfinishedName(String herb)
-	{
-		if (herb.equals("Dwarf weed"))
-		{
-			return "Dwarf weed potion (unf)";
-		}
-		return herb.replace(" leaf", "").replace(" weed", "") + " potion (unf)";
+		return new Recipe(null, name, level, List.of(fromHerb, fromUnfinished));
 	}
 }

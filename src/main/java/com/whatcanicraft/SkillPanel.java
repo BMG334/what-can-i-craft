@@ -2,10 +2,11 @@ package com.whatcanicraft;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -27,7 +28,7 @@ public class SkillPanel extends JPanel
 	private final JComboBox<String> categoryFilter;
 
 	/** Results of the most recent scan, kept so changing the filter doesn't require rescanning. */
-	private List<RecipeMatch> lastMatches;
+	private List<Recipe.Match> lastMatches;
 
 	/**
 	 * @param categories filter categories; if empty, no dropdown is shown
@@ -52,8 +53,7 @@ public class SkillPanel extends JPanel
 		}
 		else
 		{
-			List<String> items = new ArrayList<>();
-			items.add(ALL_CATEGORIES);
+			List<String> items = new ArrayList<>(List.of(ALL_CATEGORIES));
 			items.addAll(categories);
 
 			categoryFilter = new JComboBox<>(items.toArray(new String[0]));
@@ -64,7 +64,7 @@ public class SkillPanel extends JPanel
 		}
 
 		statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		setStatus("Open your bank, then press Scan Bank.");
+		statusLabel.setText(html(170, "Open your bank, then press Scan Bank."));
 
 		JPanel header = new JPanel(new BorderLayout(0, 8));
 		header.setOpaque(false);
@@ -86,18 +86,16 @@ public class SkillPanel extends JPanel
 	public void showMessage(String message)
 	{
 		lastMatches = null;
-		resultsContainer.removeAll();
-		setStatus(message);
-		refresh();
+		display(message, List.of());
 	}
 
-	public void showResults(List<RecipeMatch> matches)
+	public void showResults(List<Recipe.Match> matches)
 	{
 		lastMatches = matches;
 		render();
 	}
 
-	/** Draws lastMatches, applying the currently selected category filter. */
+	/** Shows lastMatches, applying the currently selected category filter. */
 	private void render()
 	{
 		if (lastMatches == null)
@@ -105,45 +103,42 @@ public class SkillPanel extends JPanel
 			return;
 		}
 
-		String selected = categoryFilter == null ? null : (String) categoryFilter.getSelectedItem();
-		boolean filtering = selected != null && !ALL_CATEGORIES.equals(selected);
+		String selected = categoryFilter == null ? ALL_CATEGORIES : (String) categoryFilter.getSelectedItem();
+		boolean filtering = !ALL_CATEGORIES.equals(selected);
 
-		List<RecipeMatch> visible = new ArrayList<>();
-		for (RecipeMatch match : lastMatches)
-		{
-			if (!filtering || selected.equals(match.getCategory()))
-			{
-				visible.add(match);
-			}
-		}
+		List<Recipe.Match> visible = lastMatches.stream()
+			.filter(match -> !filtering || selected.equals(match.getRecipe().getCategory()))
+			.collect(Collectors.toList());
 
-		resultsContainer.removeAll();
-
+		String status;
 		if (visible.isEmpty())
 		{
-			setStatus(filtering
-				? "No " + selected + " recipes found in your bank."
-				: "No recipes found in your bank.");
+			status = "No " + (filtering ? selected + " recipes" : "recipes") + " found in your bank.";
 		}
 		else
 		{
-			setStatus("Found " + visible.size() + " recipe" + (visible.size() == 1 ? "" : "s") + ":");
-			for (RecipeMatch match : visible)
-			{
-				resultsContainer.add(createEntry(match));
-				resultsContainer.add(createGap());
-			}
+			status = "Found " + visible.size() + " recipe" + (visible.size() == 1 ? "" : "s") + ":";
 		}
 
-		refresh();
+		display(status, visible);
 	}
 
-	private void setStatus(String text)
+	/** Replaces the status line and result entries. */
+	private void display(String status, List<Recipe.Match> entries)
 	{
-		statusLabel.setText("<html><body style='width:170px'>" + text + "</body></html>");
+		statusLabel.setText(html(170, status));
+
+		resultsContainer.removeAll();
+		for (Recipe.Match match : entries)
+		{
+			resultsContainer.add(createEntry(match));
+			resultsContainer.add(Box.createVerticalStrut(5));
+		}
+		resultsContainer.revalidate();
+		resultsContainer.repaint();
 	}
 
-	private JPanel createEntry(RecipeMatch match)
+	private static JPanel createEntry(Recipe.Match match)
 	{
 		JPanel entry = new JPanel();
 		entry.setLayout(new BoxLayout(entry, BoxLayout.Y_AXIS));
@@ -151,12 +146,12 @@ public class SkillPanel extends JPanel
 		entry.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
 
 		// Main text: recipe name
-		JLabel title = new JLabel(match.getName());
+		JLabel title = new JLabel(match.getRecipe().getName());
 		title.setForeground(Color.WHITE);
 		title.setAlignmentX(LEFT_ALIGNMENT);
 
 		// Subtitle: ingredients
-		JLabel subtitle = new JLabel("<html><body style='width:150px'>" + match.getIngredients() + "</body></html>");
+		JLabel subtitle = new JLabel(html(150, match.getIngredients()));
 		subtitle.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		subtitle.setAlignmentX(LEFT_ALIGNMENT);
 
@@ -165,18 +160,9 @@ public class SkillPanel extends JPanel
 		return entry;
 	}
 
-	private static JPanel createGap()
+	/** Wraps text in HTML so long lines wrap at the given pixel width. */
+	private static String html(int width, String text)
 	{
-		JPanel gap = new JPanel();
-		gap.setOpaque(false);
-		gap.setPreferredSize(new Dimension(0, 5));
-		gap.setMaximumSize(new Dimension(Integer.MAX_VALUE, 5));
-		return gap;
-	}
-
-	private void refresh()
-	{
-		resultsContainer.revalidate();
-		resultsContainer.repaint();
+		return "<html><body style='width:" + width + "px'>" + text + "</body></html>";
 	}
 }

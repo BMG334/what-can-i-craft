@@ -45,7 +45,7 @@ public class WhatCanICraftPanel extends PluginPanel
 		skillPanels.get(skill).showMessage(message);
 	}
 
-	public void showResults(CraftSkill skill, List<RecipeMatch> matches)
+	public void showResults(CraftSkill skill, List<Recipe.Match> matches)
 	{
 		skillPanels.get(skill).showResults(matches);
 	}

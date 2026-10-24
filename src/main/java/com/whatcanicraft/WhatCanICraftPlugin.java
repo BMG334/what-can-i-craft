@@ -6,12 +6,11 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.InventoryID;
@@ -26,7 +25,6 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 
-@Slf4j
 @PluginDescriptor(
 	name = "What Can I Craft",
 	description = "Scans your bank for skilling ingredients and lists what you can make (Herblore, Crafting)",
@@ -83,37 +81,27 @@ public class WhatCanICraftPlugin extends Plugin
 		{
 			if (client.getGameState() != GameState.LOGGED_IN)
 			{
-				showMessage(skill, "Log in to scan your bank.");
+				updatePanel(p -> p.showMessage(skill, "Log in to scan your bank."));
 				return;
 			}
 
 			ItemContainer bank = client.getItemContainer(InventoryID.BANK);
 			if (bank == null)
 			{
-				showMessage(skill, "Bank contents unavailable. Open your bank once, then scan again.");
+				updatePanel(p -> p.showMessage(skill, "Bank contents unavailable. Open your bank once, then scan again."));
 				return;
 			}
 
 			Set<String> owned = new HashSet<>();
 			collectNames(bank, owned);
 
-			if (config.includeInventory())
+			ItemContainer inventory = config.includeInventory() ? client.getItemContainer(InventoryID.INVENTORY) : null;
+			if (inventory != null)
 			{
-				ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-				if (inventory != null)
-				{
-					collectNames(inventory, owned);
-				}
+				collectNames(inventory, owned);
 			}
 
-			List<RecipeMatch> matches = RecipeMatcher.findCraftable(skill.getRecipes(), owned);
-			SwingUtilities.invokeLater(() ->
-			{
-				if (panel != null)
-				{
-					panel.showResults(skill, matches);
-				}
-			});
+			updatePanel(p -> p.showResults(skill, skill.findCraftable(owned)));
 		});
 	}
 
@@ -131,22 +119,21 @@ public class WhatCanICraftPlugin extends Plugin
 
 			// Bank placeholders reuse the real item's name but aren't actual items.
 			// They carry a placeholder template id (14401); normal items have -1.
-			if (composition.getPlaceholderTemplateId() > 0)
+			if (composition.getPlaceholderTemplateId() <= 0)
 			{
-				continue;
+				names.add(composition.getName().toLowerCase(Locale.ROOT));
 			}
-
-			names.add(composition.getName().toLowerCase(Locale.ROOT));
 		}
 	}
 
-	private void showMessage(CraftSkill skill, String message)
+	/** Runs a panel update on the Swing thread, if the plugin is still running. */
+	private void updatePanel(Consumer<WhatCanICraftPanel> update)
 	{
 		SwingUtilities.invokeLater(() ->
 		{
 			if (panel != null)
 			{
-				panel.showMessage(skill, message);
+				update.accept(panel);
 			}
 		});
 	}
