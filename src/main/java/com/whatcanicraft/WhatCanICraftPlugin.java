@@ -9,12 +9,16 @@ import java.util.Locale;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
+import net.runelite.api.EnumID;
 import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.ScriptID;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
@@ -23,6 +27,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 
+@Slf4j
 @PluginDescriptor(
 	name = "What Can I Craft",
 	description = "Scans your bank for skilling ingredients and lists what you can make (Herblore, Crafting)",
@@ -46,14 +51,12 @@ public class WhatCanICraftPlugin extends Plugin
 	private WhatCanICraftConfig config;
 
 	private WhatCanICraftPanel panel;
-	private PotionStorageReader potionStorageReader;
 	private NavigationButton navButton;
 
 	@Override
-	protected void startUp() throws Exception
+	protected void startUp()
 	{
 		panel = new WhatCanICraftPanel(this::scanBank);
-		potionStorageReader = new PotionStorageReader(client, itemManager);
 
 		navButton = NavigationButton.builder()
 			.tooltip("What Can I Craft")
@@ -66,18 +69,17 @@ public class WhatCanICraftPlugin extends Plugin
 	}
 
 	@Override
-	protected void shutDown() throws Exception
+	protected void shutDown()
 	{
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
-		potionStorageReader = null;
 		navButton = null;
 	}
 
 	/** Called from the Swing thread when a tab's Scan button is pressed. */
 	private void scanBank(CraftSkill skill)
 	{
-		// Item containers and item definitions must be read on the client thread
+		// Item containers, item definitions and client scripts must be used on the client thread
 		clientThread.invoke(() ->
 		{
 			if (client.getGameState() != GameState.LOGGED_IN)
@@ -96,7 +98,7 @@ public class WhatCanICraftPlugin extends Plugin
 			Stock owned = new Stock();
 			countItems(bank, owned);
 
-			ItemContainer inventory = config.includeInventory() ? client.getItemContainer(InventoryID.INVENTORY) : null;
+			ItemContainer inventory = config.includeInventory() ? client.getItemContainer(InventoryID.INV) : null;
 			if (inventory != null)
 			{
 				countItems(inventory, owned);
@@ -104,7 +106,7 @@ public class WhatCanICraftPlugin extends Plugin
 
 			if (config.includePotionStorage())
 			{
-				potionStorageReader.addTo(owned);
+				countPotionStorage(owned);
 			}
 
 			updatePanel(p -> p.showResults(skill, skill.findCraftable(owned)));
@@ -131,6 +133,73 @@ public class WhatCanICraftPlugin extends Plugin
 				stock.addItem(composition.getName().toLowerCase(Locale.ROOT), item.getQuantity());
 			}
 		}
+	}
+
+	/**
+	 * Adds the bank's potion storage to the stock, the same way RuneLite's Bank Tags plugin reads it.
+	 *
+	 * Potion storage isn't an item container. The game has two enums listing the storable potions
+	 * (finished and unfinished). Each value in them is the id of another enum, one per potion, that maps a
+	 * dose count (1-4) to the potion's item id. Running the POTIONSTORE_DOSES client script with a potion's
+	 * enum id leaves the amount stored on the int stack.
+	 *
+	 * Finished potions are stored as loose doses that can be withdrawn as potions of any dose size, so they're
+	 * added as a pool of doses. Unfinished potions are stored one per unit and added as plain items.
+	 * (Stored empty vials are ignored: recipes need vials of water.)
+	 */
+	private void countPotionStorage(Stock stock)
+	{
+		for (boolean unfinished : new boolean[]{false, true})
+		{
+			EnumComposition potionList = client.getEnum(unfinished
+				? EnumID.POTIONSTORE_UNFINISHED_POTIONS
+				: EnumID.POTIONSTORE_POTIONS);
+			if (potionList == null)
+			{
+				continue;
+			}
+
+			for (int potionEnumId : potionList.getIntVals())
+			{
+				client.runScript(ScriptID.POTIONSTORE_DOSES, potionEnumId);
+				int stored = client.getIntStack()[0];
+				String name = stored > 0 ? potionName(client.getEnum(potionEnumId)) : null;
+				if (name == null)
+				{
+					continue;
+				}
+				log.debug("Potion storage: {} = {}", name, stored);
+
+				if (unfinished)
+				{
+					stock.addItem(name.toLowerCase(Locale.ROOT), stored);
+				}
+				else
+				{
+					// "Super energy(4)" -> "super energy"
+					stock.addPotionDoses(name.replaceAll("\\(\\d\\)$", "").toLowerCase(Locale.ROOT), stored);
+				}
+			}
+		}
+	}
+
+	/** @return the potion's item name from any of its dose items, or null if the enum has none */
+	private String potionName(EnumComposition potionEnum)
+	{
+		if (potionEnum == null)
+		{
+			return null;
+		}
+
+		for (int doses = 4; doses >= 1; doses--)
+		{
+			int itemId = potionEnum.getIntValue(doses);
+			if (itemId > 0)
+			{
+				return itemManager.getItemComposition(itemId).getName();
+			}
+		}
+		return null;
 	}
 
 	/** Runs a panel update on the Swing thread, if the plugin is still running. */
