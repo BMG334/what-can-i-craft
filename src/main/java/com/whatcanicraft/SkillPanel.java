@@ -2,6 +2,7 @@ package com.whatcanicraft;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +23,7 @@ import net.runelite.client.ui.ColorScheme;
 public class SkillPanel extends JPanel
 {
 	private static final String ALL_CATEGORIES = "All";
+	private static final DecimalFormat XP_FORMAT = new DecimalFormat("#,##0.#");
 
 	private final JLabel statusLabel = new JLabel();
 	private final JPanel resultsContainer = new JPanel();
@@ -145,8 +147,8 @@ public class SkillPanel extends JPanel
 		entry.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		entry.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
 
-		// Main text: recipe name
-		JLabel title = new JLabel(match.getRecipe().getName());
+		// Main text: recipe name and how many can be made
+		JLabel title = new JLabel(match.getRecipe().getName() + " (x" + match.getCount() + ")");
 		title.setForeground(Color.WHITE);
 		title.setAlignmentX(LEFT_ALIGNMENT);
 
@@ -157,6 +159,16 @@ public class SkillPanel extends JPanel
 
 		entry.add(title);
 		entry.add(subtitle);
+
+		// Total XP for making them all (hidden when the recipe has no XP data)
+		if (match.getXp() > 0)
+		{
+			JLabel xp = new JLabel(XP_FORMAT.format(match.getXp()) + " XP");
+			xp.setForeground(ColorScheme.PROGRESS_COMPLETE_COLOR);
+			xp.setAlignmentX(LEFT_ALIGNMENT);
+			entry.add(xp);
+		}
+
 		return entry;
 	}
 

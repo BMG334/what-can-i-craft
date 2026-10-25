@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /** The skills shown as tabs in the side panel, in tab order. */
 public enum CraftSkill
@@ -35,15 +35,15 @@ public enum CraftSkill
 	}
 
 	/**
-	 * @param ownedNames lower-case names of items the player owns
+	 * @param owned lower-case item name -> total quantity the player owns
 	 * @return this skill's craftable recipes, sorted by required level
 	 */
-	public List<Recipe.Match> findCraftable(Set<String> ownedNames)
+	public List<Recipe.Match> findCraftable(Map<String, Integer> owned)
 	{
 		List<Recipe.Match> matches = new ArrayList<>();
 		for (Recipe recipe : recipes)
 		{
-			Recipe.Match match = recipe.match(ownedNames);
+			Recipe.Match match = recipe.match(owned);
 			if (match != null)
 			{
 				matches.add(match);

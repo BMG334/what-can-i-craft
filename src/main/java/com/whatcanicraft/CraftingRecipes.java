@@ -37,18 +37,18 @@ public final class CraftingRecipes
 		sewn("Studded chaps", 44, "Leather chaps", "Steel studs"),
 
 		// Dragonhide
-		sewn("Green d'hide vambraces", 57, "Green dragon leather"),
-		sewn("Green d'hide chaps", 60, "Green dragon leather"),
-		sewn("Green d'hide body", 63, "Green dragon leather"),
-		sewn("Blue d'hide vambraces", 66, "Blue dragon leather"),
-		sewn("Blue d'hide chaps", 68, "Blue dragon leather"),
-		sewn("Blue d'hide body", 71, "Blue dragon leather"),
-		sewn("Red d'hide vambraces", 73, "Red dragon leather"),
-		sewn("Red d'hide chaps", 75, "Red dragon leather"),
-		sewn("Red d'hide body", 77, "Red dragon leather"),
-		sewn("Black d'hide vambraces", 79, "Black dragon leather"),
-		sewn("Black d'hide chaps", 82, "Black dragon leather"),
-		sewn("Black d'hide body", 84, "Black dragon leather"),
+		hide("Green d'hide vambraces", 57, "Green dragon leather", 1),
+		hide("Green d'hide chaps", 60, "Green dragon leather", 2),
+		hide("Green d'hide body", 63, "Green dragon leather", 3),
+		hide("Blue d'hide vambraces", 66, "Blue dragon leather", 1),
+		hide("Blue d'hide chaps", 68, "Blue dragon leather", 2),
+		hide("Blue d'hide body", 71, "Blue dragon leather", 3),
+		hide("Red d'hide vambraces", 73, "Red dragon leather", 1),
+		hide("Red d'hide chaps", 75, "Red dragon leather", 2),
+		hide("Red d'hide body", 77, "Red dragon leather", 3),
+		hide("Black d'hide vambraces", 79, "Black dragon leather", 1),
+		hide("Black d'hide chaps", 82, "Black dragon leather", 2),
+		hide("Black d'hide body", 84, "Black dragon leather", 3),
 
 		// Gem cutting
 		cut("Opal", 1, "Uncut opal"),
@@ -107,6 +107,13 @@ public final class CraftingRecipes
 		List<String> items = new ArrayList<>(List.of("Needle", "Thread"));
 		items.addAll(Arrays.asList(materials));
 		return Recipe.of(ARMOR, name, level, items.toArray(new String[0]));
+	}
+
+	/** Needle + thread + dragon leather (vambraces 1, chaps 2, body 3). */
+	private static Recipe hide(String name, int level, String leather, int quantity)
+	{
+		return Recipe.of(ARMOR, name, level,
+			List.of(Recipe.Ingredient.item("Needle"), Recipe.Ingredient.item("Thread"), Recipe.Ingredient.item(leather, quantity)));
 	}
 
 	/** Chisel + uncut gem. */

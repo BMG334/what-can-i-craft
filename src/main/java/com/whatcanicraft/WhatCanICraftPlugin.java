@@ -5,9 +5,9 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
@@ -92,20 +92,21 @@ public class WhatCanICraftPlugin extends Plugin
 				return;
 			}
 
-			Set<String> owned = new HashSet<>();
-			collectNames(bank, owned);
+			Map<String, Integer> owned = new HashMap<>();
+			countItems(bank, owned);
 
 			ItemContainer inventory = config.includeInventory() ? client.getItemContainer(InventoryID.INVENTORY) : null;
 			if (inventory != null)
 			{
-				collectNames(inventory, owned);
+				countItems(inventory, owned);
 			}
 
 			updatePanel(p -> p.showResults(skill, skill.findCraftable(owned)));
 		});
 	}
 
-	private void collectNames(ItemContainer container, Set<String> names)
+	/** Adds the container's item quantities to the running totals, keyed by lower-case item name. */
+	private void countItems(ItemContainer container, Map<String, Integer> totals)
 	{
 		for (Item item : container.getItems())
 		{
@@ -121,7 +122,7 @@ public class WhatCanICraftPlugin extends Plugin
 			// They carry a placeholder template id (14401); normal items have -1.
 			if (composition.getPlaceholderTemplateId() <= 0)
 			{
-				names.add(composition.getName().toLowerCase(Locale.ROOT));
+				totals.merge(composition.getName().toLowerCase(Locale.ROOT), item.getQuantity(), Integer::sum);
 			}
 		}
 	}
