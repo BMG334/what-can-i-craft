@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 /** The skills shown as tabs in the side panel, in tab order. */
 public enum CraftSkill
@@ -34,11 +33,8 @@ public enum CraftSkill
 		return categories;
 	}
 
-	/**
-	 * @param owned lower-case item name -> total quantity the player owns
-	 * @return this skill's craftable recipes, sorted by required level
-	 */
-	public List<Recipe.Match> findCraftable(Map<String, Integer> owned)
+	/** @return this skill's craftable recipes, sorted by required level */
+	public List<Recipe.Match> findCraftable(Stock owned)
 	{
 		List<Recipe.Match> matches = new ArrayList<>();
 		for (Recipe recipe : recipes)

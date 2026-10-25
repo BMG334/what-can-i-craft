@@ -16,4 +16,14 @@ public interface WhatCanICraftConfig extends Config
 	{
 		return false;
 	}
+
+	@ConfigItem(
+		keyName = "includePotionStorage",
+		name = "Include potion storage",
+		description = "Also count potion doses and unfinished potions kept in the bank's Potion Storage"
+	)
+	default boolean includePotionStorage()
+	{
+		return true;
+	}
 }

@@ -5,9 +5,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
@@ -48,12 +46,14 @@ public class WhatCanICraftPlugin extends Plugin
 	private WhatCanICraftConfig config;
 
 	private WhatCanICraftPanel panel;
+	private PotionStorageReader potionStorageReader;
 	private NavigationButton navButton;
 
 	@Override
 	protected void startUp() throws Exception
 	{
 		panel = new WhatCanICraftPanel(this::scanBank);
+		potionStorageReader = new PotionStorageReader(client, itemManager);
 
 		navButton = NavigationButton.builder()
 			.tooltip("What Can I Craft")
@@ -70,6 +70,7 @@ public class WhatCanICraftPlugin extends Plugin
 	{
 		clientToolbar.removeNavigation(navButton);
 		panel = null;
+		potionStorageReader = null;
 		navButton = null;
 	}
 
@@ -92,7 +93,7 @@ public class WhatCanICraftPlugin extends Plugin
 				return;
 			}
 
-			Map<String, Integer> owned = new HashMap<>();
+			Stock owned = new Stock();
 			countItems(bank, owned);
 
 			ItemContainer inventory = config.includeInventory() ? client.getItemContainer(InventoryID.INVENTORY) : null;
@@ -101,12 +102,17 @@ public class WhatCanICraftPlugin extends Plugin
 				countItems(inventory, owned);
 			}
 
+			if (config.includePotionStorage())
+			{
+				potionStorageReader.addTo(owned);
+			}
+
 			updatePanel(p -> p.showResults(skill, skill.findCraftable(owned)));
 		});
 	}
 
-	/** Adds the container's item quantities to the running totals, keyed by lower-case item name. */
-	private void countItems(ItemContainer container, Map<String, Integer> totals)
+	/** Adds the container's item quantities to the stock, keyed by lower-case item name. */
+	private void countItems(ItemContainer container, Stock stock)
 	{
 		for (Item item : container.getItems())
 		{
@@ -122,7 +128,7 @@ public class WhatCanICraftPlugin extends Plugin
 			// They carry a placeholder template id (14401); normal items have -1.
 			if (composition.getPlaceholderTemplateId() <= 0)
 			{
-				totals.merge(composition.getName().toLowerCase(Locale.ROOT), item.getQuantity(), Integer::sum);
+				stock.addItem(composition.getName().toLowerCase(Locale.ROOT), item.getQuantity());
 			}
 		}
 	}

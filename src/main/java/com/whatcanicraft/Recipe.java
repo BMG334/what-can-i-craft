@@ -1,10 +1,10 @@
 package com.whatcanicraft;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -47,12 +47,11 @@ public class Recipe
 	 * Works out how many times this recipe can be made from the owned items, and the XP that gives.
 	 * Options are used in order; items consumed by one option aren't available to the next.
 	 *
-	 * @param owned lower-case item name -> total quantity the player owns
 	 * @return the result, or null if the recipe can't be made even once
 	 */
-	public Match match(Map<String, Integer> owned)
+	public Match match(Stock owned)
 	{
-		Map<String, Integer> used = new HashMap<>();
+		Stock remaining = owned.copy();
 		int total = 0;
 		double xp = 0;
 		String ingredients = null;
@@ -64,13 +63,13 @@ public class Recipe
 			// A dosed potion is tried at 4, 3, 2, then 1 doses; non-dosed options run once
 			for (int doses = dosed ? 4 : 0; doses >= (dosed ? 1 : 0); doses--)
 			{
-				int crafts = option.maxCrafts(owned, used, doses);
+				int crafts = option.maxCrafts(remaining, doses);
 				if (crafts == 0)
 				{
 					continue;
 				}
 
-				option.consume(used, doses, crafts);
+				option.consume(remaining, doses, crafts);
 				total += crafts;
 				xp += crafts * option.xp * (dosed ? doses / 4.0 : 1);
 				if (ingredients == null)
@@ -119,24 +118,22 @@ public class Recipe
 			return ingredients.stream().anyMatch(i -> i.dosed);
 		}
 
-		/** How many times this option can run, given what's owned minus what earlier options already used. */
-		private int maxCrafts(Map<String, Integer> owned, Map<String, Integer> used, int doses)
+		/** How many times this option can run with the stock that's left. */
+		private int maxCrafts(Stock stock, int doses)
 		{
 			int crafts = Integer.MAX_VALUE;
 			for (Ingredient ingredient : ingredients)
 			{
-				String key = ingredient.key(doses);
-				int available = owned.getOrDefault(key, 0) - used.getOrDefault(key, 0);
-				crafts = Math.min(crafts, available / ingredient.needed(doses));
+				crafts = Math.min(crafts, ingredient.available(stock, doses) / ingredient.needed(doses));
 			}
 			return crafts;
 		}
 
-		private void consume(Map<String, Integer> used, int doses, int crafts)
+		private void consume(Stock stock, int doses, int crafts)
 		{
 			for (Ingredient ingredient : ingredients)
 			{
-				used.merge(ingredient.key(doses), ingredient.needed(doses) * crafts, Integer::sum);
+				ingredient.consume(stock, doses, ingredient.needed(doses) * crafts);
 			}
 		}
 
@@ -147,13 +144,24 @@ public class Recipe
 		}
 	}
 
-	/** One required item: a name plus how many are needed per craft. */
+	/**
+	 * One required item: a name plus how many are needed per craft.
+	 * Potions (dosed potions, or names ending in a dose like "Super attack(4)") can also be supplied from
+	 * potion storage: stored doses count towards the potion at any dose size.
+	 */
 	public static class Ingredient
 	{
+		private static final Pattern DOSE_SUFFIX = Pattern.compile("^(.*)\\((\\d)\\)$");
+
 		private final String name;
 		private final int quantity;
 		private final boolean dosed;
 		private final boolean perDose;
+
+		/** Potion name without dose suffix (e.g. "Super attack"), or null if this isn't a potion. */
+		private final String potionName;
+		/** Dose size of a fixed-dose potion name like "Super attack(4)"; 0 otherwise. */
+		private final int fixedDoses;
 
 		private Ingredient(String name, int quantity, boolean dosed, boolean perDose)
 		{
@@ -161,6 +169,23 @@ public class Recipe
 			this.quantity = quantity;
 			this.dosed = dosed;
 			this.perDose = perDose;
+
+			Matcher suffix = DOSE_SUFFIX.matcher(name);
+			if (dosed)
+			{
+				potionName = name;
+				fixedDoses = 0;
+			}
+			else if (!perDose && suffix.matches())
+			{
+				potionName = suffix.group(1);
+				fixedDoses = Integer.parseInt(suffix.group(2));
+			}
+			else
+			{
+				potionName = null;
+				fixedDoses = 0;
+			}
 		}
 
 		/** A plain item, one required. */
@@ -169,7 +194,7 @@ public class Recipe
 			return item(name, 1);
 		}
 
-		/** A plain item, the given quantity required. */
+		/** A plain item, the given quantity required. Names ending in a dose, like "Super attack(4)", are potions. */
 		public static Ingredient item(String name, int quantity)
 		{
 			return new Ingredient(name, quantity, false, false);
@@ -201,16 +226,40 @@ public class Recipe
 			return dosed ? name + "(" + doses + ")" : name;
 		}
 
-		/** Lower-case item name used to look the ingredient up in the owned-items map. */
-		private String key(int doses)
-		{
-			return itemName(doses).toLowerCase(Locale.ROOT);
-		}
-
 		/** Quantity needed for one craft. */
 		private int needed(int doses)
 		{
 			return perDose ? quantity * doses : quantity;
+		}
+
+		/** Dose size of the potion this ingredient needs when the recipe runs at the given dose count. */
+		private int potionDoses(int doses)
+		{
+			return dosed ? doses : fixedDoses;
+		}
+
+		/** How many of this ingredient the stock can supply: matching items, plus stored potion doses. */
+		private int available(Stock stock, int doses)
+		{
+			int items = stock.items(itemName(doses).toLowerCase(Locale.ROOT));
+			if (potionName == null)
+			{
+				return items;
+			}
+			return items + stock.potionDoses(potionName.toLowerCase(Locale.ROOT)) / potionDoses(doses);
+		}
+
+		/** Takes units of this ingredient from the stock: matching items first, then potion storage doses. */
+		private void consume(Stock stock, int doses, int units)
+		{
+			String key = itemName(doses).toLowerCase(Locale.ROOT);
+			int fromItems = Math.min(units, stock.items(key));
+			stock.removeItem(key, fromItems);
+
+			if (units > fromItems)
+			{
+				stock.removePotionDoses(potionName.toLowerCase(Locale.ROOT), (units - fromItems) * potionDoses(doses));
+			}
 		}
 
 		private String label(int doses)
