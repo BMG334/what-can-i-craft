@@ -1,9 +1,9 @@
 package com.whatcanicraft;
 
-import java.util.ArrayList;
-import java.util.List;
 import com.whatcanicraft.Recipe.Ingredient;
 import com.whatcanicraft.Recipe.Option;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Herblore potion data, taken from the Potions table on the OSRS Wiki Herblore page (level, XP, ingredients).
@@ -27,10 +27,6 @@ public final class HerbloreRecipes
 	private static final String VIAL_OF_BLOOD = "Vial of blood";
 	private static final String CRYSTAL_DUST = "Crystal dust";
 
-	private HerbloreRecipes()
-	{
-	}
-
 	public static final List<Recipe> ALL = List.of(
 		// Vial of water + herb + secondary
 		potion("Attack potion", 3, 25, "Guam leaf", "Eye of newt"),
@@ -38,9 +34,9 @@ public final class HerbloreRecipes
 		brew("Relicym's balm", 8, 40, VIAL_OF_WATER, "Rogue's purse", "Relicym's balm (unf)", "Snake weed"),
 		potion("Strength potion", 12, 50, "Tarromin", "Limpwurt root"),
 		potion("Serum 207", 15, 50, "Tarromin", "Ashes"),
-		single("Guthix rest tea", 18, 59, List.of(
+		recipe("Guthix rest tea", 18, new Option(59, List.of(
 			Ingredient.item("Cup of hot water"), Ingredient.item("Harralander"),
-			Ingredient.item("Guam leaf", 2), Ingredient.item("Marrentill"))),
+			Ingredient.item("Guam leaf", 2), Ingredient.item("Marrentill")))),
 		potion("Compost potion", 22, 60, "Harralander", "Volcanic ash"),
 		potion("Restore potion", 22, 62.5, "Harralander", "Red spiders' eggs"),
 		mix("Guthix balance", 22, 50, "Restore potion(4)", "Garlic", "Silver dust"),
@@ -101,10 +97,14 @@ public final class HerbloreRecipes
 		mix("Anti-venom+", 94, 125, "Anti-venom(4)", "Torstol"),
 		upgrade("Extended anti-venom+", 94, 80, "Anti-venom+", "Araxyte venom sac", 1),
 		upgrade("Divine super combat potion", 97, 2, "Super combat potion", CRYSTAL_DUST, 1),
-		new Recipe(null, "Extended super antifire", 98, List.of(
+		recipe("Extended super antifire", 98,
 			upgradeOption(160, "Super antifire potion", "Lava scale shard", 1),
-			upgradeOption(180, "Extended antifire", "Crushed superior dragon bones", 1)))
+			upgradeOption(180, "Extended antifire", "Crushed superior dragon bones", 1))
 	);
+
+	private HerbloreRecipes()
+	{
+	}
 
 	/** Vial of water + herb + secondaries, with the unfinished potion named after the herb. */
 	private static Recipe potion(String name, int level, double xp, String herb, String... secondaries)
@@ -127,18 +127,13 @@ public final class HerbloreRecipes
 		fromScratch.addAll(Ingredient.items(secondaries));
 		fromUnfinished.addAll(Ingredient.items(secondaries));
 
-		return new Recipe(null, name, level, List.of(new Option(xp, fromScratch), new Option(xp, fromUnfinished)));
+		return Recipe.anyOf(null, name, level, xp, List.of(fromScratch, fromUnfinished));
 	}
 
 	/** Single-option recipe: every listed item must be owned. */
 	private static Recipe mix(String name, int level, double xp, String... items)
 	{
-		return single(name, level, xp, Ingredient.items(items));
-	}
-
-	private static Recipe single(String name, int level, double xp, List<Ingredient> ingredients)
-	{
-		return new Recipe(null, name, level, List.of(new Option(xp, ingredients)));
+		return recipe(name, level, new Option(xp, Ingredient.items(items)));
 	}
 
 	/**
@@ -148,11 +143,17 @@ public final class HerbloreRecipes
 	private static Recipe upgrade(String name, int level, double xp, String potion, String perDoseItem,
 		int quantityPerDose)
 	{
-		return new Recipe(null, name, level, List.of(upgradeOption(xp, potion, perDoseItem, quantityPerDose)));
+		return recipe(name, level, upgradeOption(xp, potion, perDoseItem, quantityPerDose));
 	}
 
 	private static Option upgradeOption(double xp, String potion, String perDoseItem, int quantityPerDose)
 	{
 		return new Option(xp, List.of(Ingredient.potion(potion), Ingredient.perDose(perDoseItem, quantityPerDose)));
+	}
+
+	/** A Herblore recipe (these have no category) made from one or more alternative options. */
+	private static Recipe recipe(String name, int level, Option... options)
+	{
+		return new Recipe(null, name, level, List.of(options));
 	}
 }

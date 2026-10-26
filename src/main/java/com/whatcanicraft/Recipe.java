@@ -31,16 +31,24 @@ public class Recipe
 		this.options = List.copyOf(options);
 	}
 
-	/** Single-option recipe with no XP data: one of each listed item is required. */
-	public static Recipe of(String category, String name, int level, String... items)
+	/** Single-option recipe: one of each listed item is required. XP 0 means no XP data. */
+	public static Recipe of(String category, String name, int level, double xp, String... items)
 	{
-		return of(category, name, level, Ingredient.items(items));
+		return of(category, name, level, xp, Ingredient.items(items));
 	}
 
-	/** Single-option recipe with no XP data and explicit ingredients (quantities, etc.). */
-	public static Recipe of(String category, String name, int level, List<Ingredient> ingredients)
+	/** Single-option recipe with explicit ingredients (quantities, dosed potions, per-dose items). */
+	public static Recipe of(String category, String name, int level, double xp, List<Ingredient> ingredients)
 	{
-		return new Recipe(category, name, level, List.of(new Option(0, ingredients)));
+		return new Recipe(category, name, level, List.of(new Option(xp, ingredients)));
+	}
+
+	/** A recipe made from any one of several ingredient lists, all giving the same XP. */
+	public static Recipe anyOf(String category, String name, int level, double xp, List<List<Ingredient>> alternatives)
+	{
+		return new Recipe(category, name, level, alternatives.stream()
+			.map(ingredients -> new Option(xp, ingredients))
+			.collect(Collectors.toList()));
 	}
 
 	/**
@@ -151,15 +159,15 @@ public class Recipe
 	 */
 	public static class Ingredient
 	{
-		private static final Pattern DOSE_SUFFIX = Pattern.compile("^(.*)\\((\\d)\\)$");
+		private static final Pattern DOSE_SUFFIX = Pattern.compile("^(.*)\\(([1-4])\\)$");
 
 		private final String name;
 		private final int quantity;
 		private final boolean dosed;
 		private final boolean perDose;
 
-		/** Potion name without dose suffix (e.g. "Super attack"), or null if this isn't a potion. */
-		private final String potionName;
+		/** Lower-case potion name without dose suffix (e.g. "super attack"), or null if this isn't a potion. */
+		private final String potionKey;
 		/** Dose size of a fixed-dose potion name like "Super attack(4)"; 0 otherwise. */
 		private final int fixedDoses;
 
@@ -173,17 +181,17 @@ public class Recipe
 			Matcher suffix = DOSE_SUFFIX.matcher(name);
 			if (dosed)
 			{
-				potionName = name;
+				potionKey = name.toLowerCase(Locale.ROOT);
 				fixedDoses = 0;
 			}
 			else if (!perDose && suffix.matches())
 			{
-				potionName = suffix.group(1);
+				potionKey = suffix.group(1).toLowerCase(Locale.ROOT);
 				fixedDoses = Integer.parseInt(suffix.group(2));
 			}
 			else
 			{
-				potionName = null;
+				potionKey = null;
 				fixedDoses = 0;
 			}
 		}
@@ -226,6 +234,12 @@ public class Recipe
 			return dosed ? name + "(" + doses + ")" : name;
 		}
 
+		/** Lower-case item name used to look the ingredient up in the stock. */
+		private String key(int doses)
+		{
+			return itemName(doses).toLowerCase(Locale.ROOT);
+		}
+
 		/** Quantity needed for one craft. */
 		private int needed(int doses)
 		{
@@ -241,24 +255,19 @@ public class Recipe
 		/** How many of this ingredient the stock can supply: matching items, plus stored potion doses. */
 		private int available(Stock stock, int doses)
 		{
-			int items = stock.items(itemName(doses).toLowerCase(Locale.ROOT));
-			if (potionName == null)
-			{
-				return items;
-			}
-			return items + stock.potionDoses(potionName.toLowerCase(Locale.ROOT)) / potionDoses(doses);
+			int items = stock.items(key(doses));
+			return potionKey == null ? items : items + stock.potionDoses(potionKey) / potionDoses(doses);
 		}
 
 		/** Takes units of this ingredient from the stock: matching items first, then potion storage doses. */
 		private void consume(Stock stock, int doses, int units)
 		{
-			String key = itemName(doses).toLowerCase(Locale.ROOT);
-			int fromItems = Math.min(units, stock.items(key));
-			stock.removeItem(key, fromItems);
+			int fromItems = Math.min(units, stock.items(key(doses)));
+			stock.removeItem(key(doses), fromItems);
 
 			if (units > fromItems)
 			{
-				stock.removePotionDoses(potionName.toLowerCase(Locale.ROOT), (units - fromItems) * potionDoses(doses));
+				stock.removePotionDoses(potionKey, (units - fromItems) * potionDoses(doses));
 			}
 		}
 

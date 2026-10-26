@@ -30,8 +30,8 @@ import net.runelite.client.ui.NavigationButton;
 @Slf4j
 @PluginDescriptor(
 	name = "What Can I Craft",
-	description = "Scans your bank for skilling ingredients and lists what you can make (Herblore, Crafting)",
-	tags = {"herblore", "crafting", "bank", "recipes"}
+	description = "Scans your bank for skilling ingredients and lists what you can make (Herblore, Crafting, Cooking)",
+	tags = {"herblore", "crafting", "cooking", "bank", "recipes"}
 )
 public class WhatCanICraftPlugin extends Plugin
 {
@@ -104,7 +104,7 @@ public class WhatCanICraftPlugin extends Plugin
 				countItems(inventory, owned);
 			}
 
-			if (config.includePotionStorage())
+			if (config.includePotionStorage() && skill.usesPotionStorage())
 			{
 				countPotionStorage(owned);
 			}
